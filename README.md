@@ -1,5 +1,5 @@
-# Working Repo für WMC im 6. Semester
+# Working Repo für POS im 6. Semester
 
-Name: Vorname Zuname  
+Name: Daniel Wagner  
 Klasse: 6CAIF
 
