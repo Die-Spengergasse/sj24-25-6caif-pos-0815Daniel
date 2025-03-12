@@ -36,7 +36,7 @@ namespace SPG_Fachtheorie.Aufgabe1.Test
             using var db = GetEmptyDbContext();
             var cashier = new Cashier(1, "fn", "ln", null, "Wursttheke");
             db.Cashiers.Add(cashier);
-            
+
             // ACT
             db.SaveChanges();   // erst hier wird das INSERT INTO gesendet.
 
