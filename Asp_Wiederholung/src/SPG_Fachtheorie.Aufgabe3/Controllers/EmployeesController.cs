@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Any;
 using SPG_Fachtheorie.Aufgabe1.Infrastructure;
 using SPG_Fachtheorie.Aufgabe1.Model;
+using SPG_Fachtheorie.Aufgabe3.Commands;
 using SPG_Fachtheorie.Aufgabe3.Dtos;
 
 namespace SPG_Fachtheorie.Aufgabe3.Controllers
@@ -60,5 +61,53 @@ namespace SPG_Fachtheorie.Aufgabe3.Controllers
             return Ok(employees);
         }
 
+        ///
+        /// POST /api/employee/manager
+        [HttpPost("manager")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public IActionResult AddManager(NewManagerCommand cmd)
+        {
+            var manager = new Manager(
+                cmd.RegistrationNumber, cmd.FirstName, cmd.LastName,
+                cmd.Address is null ? null : new Address(cmd.Address.Street, cmd.Address.Zip, cmd.Address.City),
+                cmd.CarType);
+            _db.Managers.Add(manager);
+            try
+            {
+                _db.SaveChanges();
+            }
+            catch (DbUpdateException e)
+            {
+                // 400 Bad request: clientdaten fehlerhaft, der client soll die Daten nicht erneut senden.
+                return Problem(e.InnerException?.Message ?? e.Message, statusCode: 400);
+            }
+            // Den primary key des neuen DB Objektes zurückgeben.
+            return CreatedAtAction(nameof(AddManager), new { manager.RegistrationNumber });
+        }
+
+        /// POST /api/employee/manager
+        [HttpPost("cashier")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public IActionResult AddCashier(NewCashierCommand cmd)
+        {
+            var cashier = new Cashier(
+                cmd.RegistrationNumber, cmd.FirstName, cmd.LastName,
+                cmd.Address is null ? null : new Address(cmd.Address.Street, cmd.Address.Zip, cmd.Address.City),
+                cmd.JobSpezialisation);
+            _db.Cashiers.Add(cashier);
+            try
+            {
+                _db.SaveChanges();
+            }
+            catch (DbUpdateException e)
+            {
+                // 400 Bad request: clientdaten fehlerhaft, der client soll die Daten nicht erneut senden.
+                return Problem(e.InnerException?.Message ?? e.Message, statusCode: 400);
+            }
+            // Den primary key des neuen DB Objektes zurückgeben.
+            return CreatedAtAction(nameof(AddManager), new { cashier.RegistrationNumber });
+        }
     }
 }

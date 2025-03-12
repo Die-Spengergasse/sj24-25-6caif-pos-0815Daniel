@@ -98,6 +98,7 @@ namespace SPG_Fachtheorie.Aufgabe1.Infrastructure
                 .Generate(20)
                 .ToList();
             Payments.AddRange(payments);
+            SaveChanges();
         }
     }
 }
