@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using SPG_Fachtheorie.Aufgabe1.Infrastructure;
 using SPG_Fachtheorie.Aufgabe1.Model;
 using SPG_Fachtheorie.Aufgabe3.Dtos;
+using System.Text.Json;
 
 namespace SPG_Fachtheorie.Aufgabe3.Controllers
 {
@@ -66,7 +67,6 @@ namespace SPG_Fachtheorie.Aufgabe3.Controllers
         [HttpPost]
         public ActionResult CreatePayment([FromBody] NewPaymentCommand command)
         {
-            // Validate payment date
             if (!command.IsPaymentDateTimeValid())
             {
                 return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
@@ -78,7 +78,6 @@ namespace SPG_Fachtheorie.Aufgabe3.Controllers
 
             try
             {
-                // Find the cash desk by number
                 var cashDesk = _db.CashDesks.FirstOrDefault(c => c.Number == command.CashDeskNumber);
                 if (cashDesk == null)
                 {
@@ -89,7 +88,6 @@ namespace SPG_Fachtheorie.Aufgabe3.Controllers
                         detail: $"Cash desk with number {command.CashDeskNumber} not found."));
                 }
 
-                // Find the employee by registration number
                 var employee = _db.Employees.FirstOrDefault(e =>
                     e.RegistrationNumber == command.EmployeeRegistrationNumber);
                 if (employee == null)
@@ -101,7 +99,6 @@ namespace SPG_Fachtheorie.Aufgabe3.Controllers
                         detail: $"Employee with registration number {command.EmployeeRegistrationNumber} not found."));
                 }
 
-                // Parse payment type from string to enum
                 if (!Enum.TryParse<PaymentType>(command.PaymentType, true, out var paymentType))
                 {
                     return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
@@ -111,14 +108,11 @@ namespace SPG_Fachtheorie.Aufgabe3.Controllers
                         detail: $"Payment type '{command.PaymentType}' is not valid. Valid values are: {string.Join(", ", Enum.GetNames<PaymentType>())}"));
                 }
 
-                // Create new payment
                 var payment = new Payment(cashDesk, command.PaymentDateTime, employee, paymentType);
 
-                // Save to database
                 _db.Payments.Add(payment);
                 _db.SaveChanges();
 
-                // Return 201 Created with payment ID
                 return CreatedAtAction(nameof(GetPaymentById), new { id = payment.Id }, payment.Id);
             }
             catch (Exception ex)
@@ -136,7 +130,6 @@ namespace SPG_Fachtheorie.Aufgabe3.Controllers
         {
             try
             {
-                // Find the payment
                 var payment = _db.Payments
                     .Include(p => p.PaymentItems)
                     .FirstOrDefault(p => p.Id == id);
@@ -150,7 +143,6 @@ namespace SPG_Fachtheorie.Aufgabe3.Controllers
                         detail: $"Payment with ID {id} could not be found."));
                 }
 
-                // Check if payment has items and deleteItems is false
                 if (!deleteItems && payment.PaymentItems.Any())
                 {
                     return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
@@ -160,17 +152,14 @@ namespace SPG_Fachtheorie.Aufgabe3.Controllers
                         detail: "Payment has payment items."));
                 }
 
-                // If deleteItems is true, remove all payment items first
                 if (deleteItems && payment.PaymentItems.Any())
                 {
                     _db.PaymentItems.RemoveRange(payment.PaymentItems);
                 }
 
-                // Remove the payment
                 _db.Payments.Remove(payment);
                 _db.SaveChanges();
 
-                // Return 204 No Content for successful deletion
                 return NoContent();
             }
             catch (Exception ex)
@@ -182,5 +171,71 @@ namespace SPG_Fachtheorie.Aufgabe3.Controllers
                     detail: ex.Message));
             }
         }
+        [HttpPut("{id}")]
+        public ActionResult UpdatePayment(int id, [FromBody] NewPaymentCommand command)
+        {
+            if (!command.IsPaymentDateTimeValid())
+            {
+                return BadRequest("Payment date cannot be more than 1 minute in the future.");
+            }
+
+            var payment = _db.Payments
+                .Include(p => p.PaymentItems)
+                .FirstOrDefault(p => p.Id == id);
+            if (payment == null) return NotFound();
+
+            var employee = _db.Employees.FirstOrDefault(e => e.RegistrationNumber == command.EmployeeRegistrationNumber);
+            if (employee == null) return Problem("Invalid employee.", statusCode: 400);
+
+            var cashDesk = _db.CashDesks.FirstOrDefault(c => c.Number == command.CashDeskNumber);
+            if (cashDesk == null) return Problem("Invalid cash desk.", statusCode: 400);
+
+            if (!Enum.TryParse<PaymentType>(command.PaymentType, true, out var paymentType))
+            {
+                return Problem("Invalid payment type.", statusCode: 400);
+            }
+
+            payment.Employee = employee;
+            payment.CashDesk = cashDesk;
+            payment.PaymentDateTime = command.PaymentDateTime;
+            payment.PaymentType = paymentType;
+
+            _db.PaymentItems.RemoveRange(payment.PaymentItems);
+            if (command.PaymentItems != null && command.PaymentItems.Any())
+            {
+                foreach (var item in command.PaymentItems)
+                {
+                    payment.PaymentItems.Add(new PaymentItem(item.ArticleName, item.Amount, item.Price, payment));
+                }
+            }
+
+            _db.SaveChanges();
+            return NoContent();
+        }
+
+        [HttpPatch("{id}")]
+        public ActionResult PatchPayment(int id, [FromBody] JsonElement patchDoc)
+        {
+            var payment = _db.Payments.FirstOrDefault(p => p.Id == id);
+            if (payment == null) return NotFound();
+
+            if (!patchDoc.TryGetProperty("paymentType", out var typeProp))
+            {
+                return Problem("Missing 'paymentType'.", statusCode: 400);
+            }
+
+            var typeStr = typeProp.GetString();
+            if (!Enum.TryParse<PaymentType>(typeStr, true, out var paymentType))
+            {
+                return Problem("Invalid payment type.", statusCode: 400);
+            }
+
+            payment.PaymentType = paymentType;
+            _db.SaveChanges();
+
+            return NoContent();
+        }
+
+
     }
 }
