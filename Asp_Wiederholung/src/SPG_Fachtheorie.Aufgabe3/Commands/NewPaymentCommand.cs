@@ -13,6 +13,7 @@ namespace SPG_Fachtheorie.Aufgabe3.Dtos
         public string PaymentType { get; set; } = null!;
 
         public int EmployeeRegistrationNumber { get; set; }
+        public List<PaymentItemDto>? PaymentItems { get; set; }
 
         public bool IsPaymentDateTimeValid()
         {
