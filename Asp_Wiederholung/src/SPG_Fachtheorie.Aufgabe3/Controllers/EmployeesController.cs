@@ -109,5 +109,37 @@ namespace SPG_Fachtheorie.Aufgabe3.Controllers
             // Den primary key des neuen DB Objektes zurückgeben.
             return CreatedAtAction(nameof(AddManager), new { cashier.RegistrationNumber });
         }
+        
+        
+        [HttpDelete("{registrationNumber}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public IActionResult DeleteEmployee(int registrationNumber)
+        {
+            var paymentItems = _db.PaymentItems
+                .Where(p => p.Payment.Employee.RegistrationNumber == registrationNumber)
+                .ToList();
+            var payments = _db.Payments
+                .Where(p => p.Employee.RegistrationNumber == registrationNumber)
+                .ToList();
+
+            var employee = _db.Employees
+                .FirstOrDefault(e => e.RegistrationNumber == registrationNumber);
+            if (employee is null) return NoContent();
+            try
+            {
+                _db.PaymentItems.RemoveRange(paymentItems);
+                _db.SaveChanges();
+                _db.Payments.RemoveRange(payments);
+                _db.SaveChanges();
+                _db.Employees.Remove(employee);
+                _db.SaveChanges();
+            }
+            catch (DbUpdateException e)
+            {
+                return Problem(e.InnerException?.Message ?? e.Message, statusCode: 400);
+            }
+            return NoContent();
+        }
     }
 }
